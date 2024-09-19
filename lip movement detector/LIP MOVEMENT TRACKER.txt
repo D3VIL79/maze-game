@@ -1,0 +1,61 @@
+import cv2
+import dlib
+import numpy as np
+
+# Load the pre-trained model for facial landmarks
+predictor_path = 'shape_predictor_68_face_landmarks.dat'
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor(predictor_path)
+
+def get_lip_landmarks(shape):
+    # Indices for the mouth landmarks in the 68 landmarks model
+    lip_indices = list(range(48, 68))
+    return np.array([shape.part(i) for i in lip_indices])
+
+def analyze_lips(lip_landmarks):
+    # Example: Compute the width of the mouth as a simple metric
+    left_corner = lip_landmarks[0]
+    right_corner = lip_landmarks[6]
+    mouth_width = np.linalg.norm(np.array([left_corner.x, left_corner.y]) - np.array([right_corner.x, right_corner.y]))
+    return mouth_width
+
+# Initialize video capture
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("Failed to grab frame")
+        break
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray)
+    
+    for face in faces:
+        landmarks = predictor(gray, face)
+        lip_landmarks = get_lip_landmarks(landmarks)
+        
+        # Draw landmarks
+        for point in lip_landmarks:
+            cv2.circle(frame, (point.x, point.y), 2, (0, 255, 0), -1)
+        
+        # Analyze lip movements (example: width of the mouth)
+        mouth_width = analyze_lips(lip_landmarks)
+        print(f"Mouth Width: {mouth_width:.2f}")
+
+        # Provide feedback based on the mouth_width or other metrics
+        if mouth_width > 50:  # Example threshold
+            feedback = "Good pronunciation"
+        else:
+            feedback = "Try again"
+
+        # Display feedback
+        cv2.putText(frame, feedback, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+    
+    cv2.imshow('Pronunciation Practice', frame)
+    
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
